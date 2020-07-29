@@ -7,12 +7,17 @@ public class Player : MonoBehaviour
 {
     private Rigidbody rb;
     private Vec3 pos;
-    public float speed = 1.0f;
-    public float jumpSpeed = 5f;
+    [SerializeField]
+    private float speed = 1.0f;
+    [SerializeField]
+    private float jumpSpeed = 10f;
+    [SerializeField]
     private Vec3 moveDirection = Vec3.zero;
-    public bool isGrounded;
-    public bool isBlocked;
+    [SerializeField]
+    private bool isBlocked;
+    private Vec3 rotator;
     private Animator animator;
+    private float distToGround;
 
     // Start is called before the first frame update
     void Start()
@@ -21,11 +26,9 @@ public class Player : MonoBehaviour
         isBlocked = false;
         pos = transform.position;
         animator = GetComponent<Animator>();
-    }
+        rotator = new Vec3();
+        distToGround = GetComponent<Collider>().bounds.extents.y;
 
-    void OnCollisionStay()
-    {
-        isGrounded = true;
     }
 
     private void Update()
@@ -34,22 +37,25 @@ public class Player : MonoBehaviour
         float axisX = Input.GetAxis("Horizontal");
         float axisZ = Input.GetAxis("Vertical");
         moveDirection = Quaternion.Euler(0, Camera.main.transform.eulerAngles.y, 0) * new Vec3(axisX, 0, axisZ);
-        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(0, Camera.main.transform.eulerAngles.y, 0) * Quaternion.LookRotation(new Vec3(axisX, 0, axisZ)), 0.15f);
+        if (moveDirection.magnitude > 0.1f)
+        {
+            rotator = new Vec3(axisX, 0, axisZ);
+        }
+        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(0, Camera.main.transform.eulerAngles.y, 0) * Quaternion.LookRotation(rotator), 0.15f);
         moveDirection *= speed;
         Vec3 leftMoveDir = Vector3.Cross(moveDirection.normalized, Vector3.up);
 
 
-        if (Input.GetButton("Jump") && isGrounded)
+        if (Input.GetButton("Jump") && IsGrounded())
         {
             rb.AddForce(Vector3.up * jumpSpeed, ForceMode.Impulse);
-            isGrounded = false;
 
         }
         if (moveDirection.magnitude > 0.1f)
         {
             animator.SetBool(Animator.StringToHash("isMoving"), true);
             RaycastHit hit;
-            Vec3 rayPos = new Vec3(pos.x,pos.y + 0.2f, pos.z);
+            Vec3 rayPos = new Vec3(pos.x,pos.y + 0.1f, pos.z);
             if (Physics.Raycast(new Ray(rayPos, moveDirection), out hit, gameObject.GetComponent<Collider>().bounds.extents.x))
             {
                 Debug.DrawLine(rayPos, rayPos + (moveDirection.normalized * gameObject.GetComponent<Collider>().bounds.extents.x), Color.red, 0f);
@@ -57,7 +63,7 @@ public class Player : MonoBehaviour
                 {
                     moveDirection = Vec3.zero;
                 }
-                Debug.Log(Vector3.Dot(transform.position, hit.point));
+               
             }
             else
             {
@@ -71,6 +77,7 @@ public class Player : MonoBehaviour
         }
 
         pos += moveDirection * Time.deltaTime;
+        Debug.Log("velocity" + moveDirection.x + "," + moveDirection.y + "," + moveDirection.z);
         pos.y = rb.transform.position.y;
         transform.position = pos;
         rb.MovePosition(transform.position);
@@ -80,6 +87,11 @@ public class Player : MonoBehaviour
     void OnCollisionEnter(Collision col)
     {
 
+    }
+
+    bool IsGrounded()
+    {
+        return Physics.Raycast(transform.position, -Vector3.up, distToGround + 0.1f);
     }
 }
 
